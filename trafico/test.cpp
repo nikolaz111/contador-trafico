@@ -34,8 +34,9 @@ int epsilon_trackbar = 300;
 double epsilon = 0.3;
 int maxError_trackbar = 100;
 double maxError = 10;
-
-Mat image;
+int frame_video_trackbar = 0;
+long current_frame = 0;
+int tamanoVentana = 3;
 
 bool selectObject = false;
 Rect selection;
@@ -51,6 +52,11 @@ void on_trackbar_error( int, void* )
 {
 	maxError = maxError_trackbar/10;
 }
+void on_trackbar_frame_video( int, void* )
+{
+	current_frame = frame_video_trackbar;
+}
+
 
 
 static void onMouse( int event, int x, int y, int, void* )
@@ -135,7 +141,7 @@ int main(void)
 {
 	/* Create an object that decodes the input video stream. */
 	CvCapture *input_video = cvCaptureFromFile(
-		"C:\\Users\\Nicolas\\Desktop\\Videos Imagenes y vi\\normal - for computer resolution.mp4"
+		"C:\\Users\\Nicolas\\Desktop\\Videos Imagenes y vi\\GOPR4426.MP4"
 		);
 	if (input_video == NULL)
 	{
@@ -175,13 +181,14 @@ int main(void)
 	createTrackbar( "Max Iter", "Controls", &maxIter, 100, NULL);
 	createTrackbar( "epsilon", "Controls", &epsilon_trackbar, 1000, on_trackbar_epsilon);
 	createTrackbar( "Max Error", "Controls", &maxError_trackbar, 1000, on_trackbar_error);
+	createTrackbar( "Video", "Controls", &frame_video_trackbar, number_of_frames, on_trackbar_frame_video);
+	createTrackbar( "Kernel", "Controls", &tamanoVentana, 30, NULL);
 
 	setMouseCallback( "Optical Flow", onMouse, 0 );
 
-	long current_frame = 0;
+	current_frame = 0;
 	while(true)
 	{
-
 
 		static IplImage *frame = NULL, *frame1 = NULL, *frame1_1C = NULL, *frame2_1C = NULL, *eig_image = NULL, *temp_image = NULL, *pyramid1 = NULL, *pyramid2 = NULL;
 		//mascaras
@@ -335,13 +342,8 @@ int main(void)
 		* "number_of_features" will be set to a value <= 400 indicating the number of feature points found.
 		*/
 		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Origen_features, &number_of_featuresOrigen, .01, .01, maskOrigen);
-		//cout << number_of_featuresOrigen << "\n";
-		eig_image = NULL, temp_image = NULL;
 		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Izq_features, &number_of_featuresIzq, .01, .01, maskIzq);
-		//cout << number_of_featuresIzq << "\n";
-		eig_image = NULL, temp_image = NULL;
 		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Der_features, &number_of_featuresDer, .01, .01, maskDer);
-		//cout << number_of_featuresDer << "\n";
 
 		//Uniwer los 3 arreglo
 		CvPoint2D32f frame1Todo_features[MAX_NUM_FEATURES_POR_ZONA*3];
@@ -361,13 +363,8 @@ int main(void)
 			}
 
 
-			/*cout << "Origen: " << frame1Todo_features[i].x << "\n";
-			cout << "Izq:    " << frame1Todo_features[i+MAX_NUM_FEATURES_POR_ZONA].x << "\n";
-			cout << "Der:    " << frame1Todo_features[i+MAX_NUM_FEATURES_POR_ZONA*2].x << "\n";
-			*/
 		}
 
-		//cout << frame1Todo_features[MAX_NUM_FEATURES_POR_ZONA*3-1].x << "\n";
 
 		/* Pyramidal Lucas Kanade Optical Flow! */
 
@@ -386,7 +383,7 @@ int main(void)
 		float optical_flow_feature_error[MAX_NUM_FEATURES_POR_ZONA*3];
 
 		/* This is the window size to use to avoid the aperture problem (see slide "Optical Flow: Overview"). */
-		CvSize optical_flow_window = cvSize(3,3);
+		CvSize optical_flow_window = cvSize(tamanoVentana,tamanoVentana);
 
 		/* This termination criteria tells the algorithm to stop when it has either done 20 iterations or when
 		* epsilon is better than .3.  You can play with these parameters for speed vs. accuracy but these values
@@ -509,7 +506,7 @@ int main(void)
 		imshow( "Optical Flow", image );
 		//--------------------probando marcacion en pantalla
 
-
+		//----Liberando memoria
 
 		/* And wait for the user to press a key (so the user has time to look at the image).
 		* If the argument is 0 then it waits forever otherwise it waits that number of milliseconds.
