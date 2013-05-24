@@ -1,223 +1,530 @@
-//objectTrackingTutorial.cpp
+//poner las areas con el mouse las q faltan
 
-//Written by  Kyle Hounslow 2013
 
-//Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software")
-//, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-//IN THE SOFTWARE.
-
-#include <sstream>
-#include <string>
+/* --Sparse Optical Flow Demo Program--
+* Written by David Stavens (david.stavens@ai.stanford.edu)
+*/
 #include <iostream>
-#include <opencv\highgui.h>
-#include <opencv\cv.h>
+#include <stdio.h>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
+#include <math.h>
 
+
+#define MAX_NUM_FEATURES_POR_ZONA 10000
+#define PI 3.14159265358979323846
+
+using namespace std;
 using namespace cv;
-//initial min and max HSV filter values.
-//these will be changed using trackbars
-int H_MIN = 0;
-int H_MAX = 256;
-int S_MIN = 0;
-int S_MAX = 256;
-int V_MIN = 0;
-int V_MAX = 256;
-//default capture width and height
-const int FRAME_WIDTH = 640;
-const int FRAME_HEIGHT = 480;
-//max number of objects to be detected in frame
-const int MAX_NUM_OBJECTS=50;
-//minimum and maximum object area
-const int MIN_OBJECT_AREA = 20*20;
-const int MAX_OBJECT_AREA = FRAME_HEIGHT*FRAME_WIDTH/1.5;
-//names that will appear at the top of each window
-const string windowName = "Original Image";
-const string windowName1 = "HSV Image";
-const string windowName2 = "Thresholded Image";
-const string windowName3 = "After Morphological Operations";
-const string trackbarWindowName = "Trackbars";
-void on_trackbar( int, void* )
-{//This function gets called whenever a
-	// trackbar position is changed
 
 
+//--------Areas para hacer la deteccion
+Rect areaOrigen;
+bool areaOrigenSet = false;
+Rect areaGiroIzq;
+bool areaGiroIzqSet = false;
+Rect areaGiroDer;
+bool areaGiroDerSet = false;
+
+int minNorm = 2;
+int maxNorm = 200;
+int maxIter = 20;
+int epsilon_trackbar = 300;
+double epsilon = 0.3;
+int maxError_trackbar = 100;
+double maxError = 10;
+
+Mat image;
+
+bool selectObject = false;
+Rect selection;
+Point origin;
+int trackObject = 0;
 
 
-
-}
-string intToString(int number){
-
-
-	std::stringstream ss;
-	ss << number;
-	return ss.str();
-}
-void createTrackbars(){
-	//create window for trackbars
-
-
-    namedWindow(trackbarWindowName,0);
-	//create memory to store trackbar name on window
-	char TrackbarName[50];
-	sprintf( TrackbarName, "H_MIN", H_MIN);
-	sprintf( TrackbarName, "H_MAX", H_MAX);
-	sprintf( TrackbarName, "S_MIN", S_MIN);
-	sprintf( TrackbarName, "S_MAX", S_MAX);
-	sprintf( TrackbarName, "V_MIN", V_MIN);
-	sprintf( TrackbarName, "V_MAX", V_MAX);
-	//create trackbars and insert them into window
-	//3 parameters are: the address of the variable that is changing when the trackbar is moved(eg.H_LOW),
-	//the max value the trackbar can move (eg. H_HIGH), 
-	//and the function that is called whenever the trackbar is moved(eg. on_trackbar)
-	//                                  ---->    ---->     ---->      
-    createTrackbar( "H_MIN", trackbarWindowName, &H_MIN, H_MAX, on_trackbar );
-    createTrackbar( "H_MAX", trackbarWindowName, &H_MAX, H_MAX, on_trackbar );
-    createTrackbar( "S_MIN", trackbarWindowName, &S_MIN, S_MAX, on_trackbar );
-    createTrackbar( "S_MAX", trackbarWindowName, &S_MAX, S_MAX, on_trackbar );
-    createTrackbar( "V_MIN", trackbarWindowName, &V_MIN, V_MAX, on_trackbar );
-    createTrackbar( "V_MAX", trackbarWindowName, &V_MAX, V_MAX, on_trackbar );
-
-
-}
-void drawObject(int x, int y,Mat &frame){
-
-	//use some of the openCV drawing functions to draw crosshairs
-	//on your tracked image!
-	circle(frame,Point(x,y),20,Scalar(0,255,0),2);
-	line(frame,Point(x,y-5),Point(x,y-25),Scalar(0,255,0),2);
-	line(frame,Point(x,y+5),Point(x,y+25),Scalar(0,255,0),2);
-	line(frame,Point(x-5,y),Point(x-25,y),Scalar(0,255,0),2);
-	line(frame,Point(x+5,y),Point(x+25,y),Scalar(0,255,0),2);
-
-	putText(frame,intToString(x)+","+intToString(y),Point(x,y+30),1,1,Scalar(0,255,0),2);
-
-}
-void morphOps(Mat &thresh){
-
-	//create structuring element that will be used to "dilate" and "erode" image.
-	//the element chosen here is a 3px by 3px rectangle
-
-	Mat erodeElement = getStructuringElement( MORPH_RECT,Size(3,3));
-    //dilate with larger element so make sure object is nicely visible
-	Mat dilateElement = getStructuringElement( MORPH_RECT,Size(8,8));
-
-	erode(thresh,thresh,erodeElement);
-	erode(thresh,thresh,erodeElement);
-
-
-	dilate(thresh,thresh,dilateElement);
-	dilate(thresh,thresh,dilateElement);
-	
-
-
-}
-void trackFilteredObject(int &x, int &y, Mat threshold, Mat &cameraFeed){
-
-	Mat temp;
-	threshold.copyTo(temp);
-	//these two vectors needed for output of findContours
-	vector< vector<Point> > contours;
-	vector<Vec4i> hierarchy;
-	//find contours of filtered image using openCV findContours function
-	findContours(temp,contours,hierarchy,CV_RETR_CCOMP,CV_CHAIN_APPROX_SIMPLE );
-	//use moments method to find our filtered object
-	double refArea = 0;
-	bool objectFound = false;
-	if (hierarchy.size() > 0) {
-		int numObjects = hierarchy.size();
-        //if number of objects greater than MAX_NUM_OBJECTS we have a noisy filter
-        if(numObjects<MAX_NUM_OBJECTS){
-			for (int index = 0; index >= 0; index = hierarchy[index][0]) {
-
-				Moments moment = moments((cv::Mat)contours[index]);
-				double area = moment.m00;
-
-				//if the area is less than 20 px by 20px then it is probably just noise
-				//if the area is the same as the 3/2 of the image size, probably just a bad filter
-				//we only want the object with the largest area so we safe a reference area each
-				//iteration and compare it to the area in the next iteration.
-                if(area>MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea){
-					x = moment.m10/area;
-					y = moment.m01/area;
-					objectFound = true;
-
-				}else objectFound = false;
-
-
-			}
-			//let user know you found an object
-			if(objectFound ==true){
-				putText(cameraFeed,"Tracking Object",Point(0,50),2,1,Scalar(0,255,0),2);
-				//draw object location on screen
-				drawObject(x,y,cameraFeed);}
-
-		}else putText(cameraFeed,"TOO MUCH NOISE! ADJUST FILTER",Point(0,50),1,2,Scalar(0,0,255),2);
-	}
-}
-int main(int argc, char* argv[])
+void on_trackbar_epsilon( int, void* )
 {
-	//some boolean variables for different functionality within this
-	//program
-    bool trackObjects = false;
-    bool useMorphOps = false;
-	//Matrix to store each frame of the webcam feed
-	Mat cameraFeed;
-	//matrix storage for HSV image
-	Mat HSV;
-	//matrix storage for binary threshold image
-	Mat threshold;
-	//x and y values for the location of the object
-	int x=0, y=0;
-	//create slider bars for HSV filtering
-	createTrackbars();
-	//video capture object to acquire webcam feed
-	VideoCapture capture;
-	//open capture object at location zero (default location for webcam)
-	capture.open(0);
-	//set height and width of capture frame
-	capture.set(CV_CAP_PROP_FRAME_WIDTH,FRAME_WIDTH);
-	capture.set(CV_CAP_PROP_FRAME_HEIGHT,FRAME_HEIGHT);
-	//start an infinite loop where webcam feed is copied to cameraFeed matrix
-	//all of our operations will be performed within this loop
-	while(1){
-		//store image to matrix
-		capture.read(cameraFeed);
-		//convert frame from BGR to HSV colorspace
-		cvtColor(cameraFeed,HSV,COLOR_BGR2HSV);
-		//filter HSV image between values and store filtered image to
-		//threshold matrix
-		inRange(HSV,Scalar(H_MIN,S_MIN,V_MIN),Scalar(H_MAX,S_MAX,V_MAX),threshold);
-		//perform morphological operations on thresholded image to eliminate noise
-		//and emphasize the filtered object(s)
-		if(useMorphOps)
-		morphOps(threshold);
-		//pass in thresholded frame to our object tracking function
-		//this function will return the x and y coordinates of the
-		//filtered object
-		if(trackObjects)
-			trackFilteredObject(x,y,threshold,cameraFeed);
+	epsilon = epsilon_trackbar/1000;
+}
+void on_trackbar_error( int, void* )
+{
+	maxError = maxError_trackbar/10;
+}
 
-		//show frames 
-		imshow(windowName2,threshold);
-		imshow(windowName,cameraFeed);
-		imshow(windowName1,HSV);
-		
 
-		//delay 30ms so that screen can refresh.
-		//image will not appear without this waitKey() command
-		waitKey(30);
+static void onMouse( int event, int x, int y, int, void* )
+{
+	if( selectObject )
+	{
+		if( !areaOrigenSet )
+		{
+			areaOrigen.x = MIN(x, origin.x);
+			areaOrigen.y = MIN(y, origin.y);
+			areaOrigen.width = std::abs(x - origin.x);
+			areaOrigen.height = std::abs(y - origin.y);
+		}
+		else if( !areaGiroIzqSet )
+		{
+			areaGiroIzq.x = MIN(x, origin.x);
+			areaGiroIzq.y = MIN(y, origin.y);
+			areaGiroIzq.width = std::abs(x - origin.x);
+			areaGiroIzq.height = std::abs(y - origin.y);
+		}
+		else if( !areaGiroDerSet )
+		{
+			areaGiroDer.x = MIN(x, origin.x);
+			areaGiroDer.y = MIN(y, origin.y);
+			areaGiroDer.width = std::abs(x - origin.x);
+			areaGiroDer.height = std::abs(y - origin.y);
+		}
+
+		selection.x = MIN(x, origin.x);
+		selection.y = MIN(y, origin.y);
+		selection.width = std::abs(x - origin.x);
+		selection.height = std::abs(y - origin.y);
+
+
+		//selection &= Rect(0, 0, image.cols, image.rows);
 	}
 
+	switch( event )
+	{
+	case CV_EVENT_LBUTTONDOWN:
+		origin = Point(x,y);
+		selection = Rect(x,y,0,0);
+		selectObject = true;
+		break;
+	case CV_EVENT_LBUTTONUP:
+		selectObject = false;
+		if( selection.width > 0 && selection.height > 0 )
+			trackObject = -1;
+		if(!areaOrigenSet)
+			areaOrigenSet = true;
+		else if(!areaGiroIzqSet)
+			areaGiroIzqSet = true;
+		else if(!areaGiroDerSet)
+			areaGiroDerSet = true;
+		break;
+	}
+}
+
+inline static double square(int a)
+{
+	return a * a;
+}
+
+/* This is just an inline that allocates images.  I did this to reduce clutter in the
+* actual computer vision algorithmic code.  Basically it allocates the requested image
+* unless that image is already non-NULL.  It always leaves a non-NULL image as-is even
+* if that image's size, depth, and/or channels are different than the request.
+*/
+inline static void allocateOnDemand( IplImage **img, CvSize size, int depth, int channels )
+{
+	if ( *img != NULL )	return;
+
+	*img = cvCreateImage( size, depth, channels );
+	if ( *img == NULL )
+	{
+		fprintf(stderr, "Error: Couldn't allocate image.  Out of memory?\n");
+		exit(-1);
+	}
+}
+
+int main(void)
+{
+	/* Create an object that decodes the input video stream. */
+	CvCapture *input_video = cvCaptureFromFile(
+		"C:\\Users\\Nicolas\\Desktop\\Videos Imagenes y vi\\normal - for computer resolution.mp4"
+		);
+	if (input_video == NULL)
+	{
+		/* Either the video didn't exist OR it uses a codec OpenCV
+		* doesn't support.
+		*/
+		fprintf(stderr, "Error: Can't open video.\n");
+		return -1;
+	}
+
+	/* Read the video's frame size out of the AVI. */
+	CvSize frame_size;
+	frame_size.height =
+		(int) cvGetCaptureProperty( input_video, CV_CAP_PROP_FRAME_HEIGHT );
+	frame_size.width =
+		(int) cvGetCaptureProperty( input_video, CV_CAP_PROP_FRAME_WIDTH );
+
+	/* Determine the number of frames in the AVI. */
+	long number_of_frames;
+	/* Go to the end of the AVI (ie: the fraction is "1") */
+	cvSetCaptureProperty( input_video, CV_CAP_PROP_POS_AVI_RATIO, 1. );
+	/* Now that we're at the end, read the AVI position in frames */
+	number_of_frames = (int) cvGetCaptureProperty( input_video, CV_CAP_PROP_POS_FRAMES );
+	/* Return to the beginning */
+	cvSetCaptureProperty( input_video, CV_CAP_PROP_POS_FRAMES, 0. );
+
+	/* Create a windows called "Optical Flow" for visualizing the output.
+	* Have the window automatically change its size to match the output.
+	*/
+	namedWindow("Optical Flow", CV_WINDOW_AUTOSIZE);
+
+	//------Ventana para los controles de la aplicacion
+	namedWindow("Controls", CV_WINDOW_NORMAL);
+	resizeWindow("Controls", 500, 400);
+	createTrackbar( "Min Norm", "Controls", &minNorm, 200, NULL);
+	createTrackbar( "Max Norm", "Controls", &maxNorm, 500, NULL);
+	createTrackbar( "Max Iter", "Controls", &maxIter, 100, NULL);
+	createTrackbar( "epsilon", "Controls", &epsilon_trackbar, 1000, on_trackbar_epsilon);
+	createTrackbar( "Max Error", "Controls", &maxError_trackbar, 1000, on_trackbar_error);
+
+	setMouseCallback( "Optical Flow", onMouse, 0 );
+
+	long current_frame = 0;
+	while(true)
+	{
+
+
+		static IplImage *frame = NULL, *frame1 = NULL, *frame1_1C = NULL, *frame2_1C = NULL, *eig_image = NULL, *temp_image = NULL, *pyramid1 = NULL, *pyramid2 = NULL;
+		//mascaras
+		static IplImage *maskOrigen = NULL, *maskIzq = NULL, *maskDer = NULL;		
+
+		/* Go to the frame we want.  Important if multiple frames are queried in
+		* the loop which they of course are for optical flow.  Note that the very
+		* first call to this is actually not needed. (Because the correct position
+		* is set outsite the for() loop.)
+		*/
+		cvSetCaptureProperty( input_video, CV_CAP_PROP_POS_FRAMES, current_frame );
+
+		/* Get the next frame of the video.
+		* IMPORTANT!  cvQueryFrame() always returns a pointer to the _same_
+		* memory location.  So successive calls:
+		* frame1 = cvQueryFrame();
+		* frame2 = cvQueryFrame();
+		* frame3 = cvQueryFrame();
+		* will result in (frame1 == frame2 && frame2 == frame3) being true.
+		* The solution is to make a copy of the cvQueryFrame() output.
+		*/
+		frame = cvQueryFrame( input_video );
+		if (frame == NULL)
+		{
+			/* Why did we get a NULL frame?  We shouldn't be at the end. */
+			fprintf(stderr, "Error: Hmm. The end came sooner than we thought.\n");
+			return -1;
+		}
+		/* Allocate another image if not already allocated.
+		* Image has ONE channel of color (ie: monochrome) with 8-bit "color" depth.
+		* This is the image format OpenCV algorithms actually operate on (mostly).
+		*/
+		allocateOnDemand( &frame1_1C, frame_size, IPL_DEPTH_8U, 1 );
+		/* Convert whatever the AVI image format is into OpenCV's preferred format.
+		* AND flip the image vertically.  Flip is a shameless hack.  OpenCV reads
+		* in AVIs upside-down by default.  (No comment :-))
+		*/
+		cvConvertImage(frame, frame1_1C);
+
+		/* We'll make a full color backup of this frame so that we can draw on it.
+		* (It's not the best idea to draw on the static memory space of cvQueryFrame().)
+		*/
+		allocateOnDemand( &frame1, frame_size, IPL_DEPTH_8U, 3 );
+		cvConvertImage(frame, frame1);
+
+		/* Get the second frame of video.  Same principles as the first. */
+		frame = cvQueryFrame( input_video );
+		if (frame == NULL)
+		{
+			fprintf(stderr, "Error: Hmm. The end came sooner than we thought.\n");
+			return -1;
+		}
+		allocateOnDemand( &frame2_1C, frame_size, IPL_DEPTH_8U, 1 );
+		cvConvertImage(frame, frame2_1C);
+
+		/* Shi and Tomasi Feature Tracking! */
+
+		/* Preparation: Allocate the necessary storage. */
+		allocateOnDemand( &eig_image, frame_size, IPL_DEPTH_32F, 1 );
+		allocateOnDemand( &temp_image, frame_size, IPL_DEPTH_32F, 1 );
+
+		/* Preparation: This array will contain the features found in frame 1. */
+		CvPoint2D32f frame1Origen_features[MAX_NUM_FEATURES_POR_ZONA];
+		CvPoint2D32f frame1Izq_features[MAX_NUM_FEATURES_POR_ZONA];
+		CvPoint2D32f frame1Der_features[MAX_NUM_FEATURES_POR_ZONA];
+
+		/* Preparation: BEFORE the function call this variable is the array size
+		* (or the maximum number of features to find).  AFTER the function call
+		* this variable is the number of features actually found.
+		*/
+		int number_of_featuresOrigen;
+		int number_of_featuresIzq;
+		int number_of_featuresDer;
+
+		/* I'm hardcoding this at 400.  But you should make this a #define so that you can
+		* change the number of features you use for an accuracy/speed tradeoff analysis.
+		*/
+		number_of_featuresOrigen = MAX_NUM_FEATURES_POR_ZONA;
+		number_of_featuresIzq = MAX_NUM_FEATURES_POR_ZONA;
+		number_of_featuresDer = MAX_NUM_FEATURES_POR_ZONA;
+
+		//----------------Mascara para la zona de origen
+		allocateOnDemand( &maskOrigen, frame_size, IPL_DEPTH_8U, 1 );
+		cvSet(maskOrigen, cvScalar(0.0));
+		int xIniOrigen = areaOrigen.x, yIniOrigen = areaOrigen.y, xFinOrigen = areaOrigen.x+areaOrigen.width, yFinOrigen = areaOrigen.y+areaOrigen.height;
+		for(int i = xIniOrigen ; i<xFinOrigen ; i++)
+		{
+			for(int j = yIniOrigen ; j<yFinOrigen ; j++)
+			{
+				cvSet2D(maskOrigen, j, i, cvScalar(255.0));
+			}
+		}
+		CvScalar line_color_origen;			
+		line_color_origen = CV_RGB(0,255,0);
+		CvPoint ptOrigen1, ptOrigen2;
+		ptOrigen1.x = xIniOrigen;
+		ptOrigen1.y = yIniOrigen;
+		ptOrigen2.x = xFinOrigen;
+		ptOrigen2.y = yFinOrigen;
+		cvRectangle(frame1, ptOrigen1, ptOrigen2, line_color_origen, 1, CV_AA, 0 );
+
+		//----------------Mascara para la zona de giro a la izquierda
+		allocateOnDemand( &maskIzq, frame_size, IPL_DEPTH_8U, 1 );
+		cvSet(maskIzq, cvScalar(0.0));
+		int xIniIzq = areaGiroIzq.x, yIniIzq = areaGiroIzq.y, xFinIzq = areaGiroIzq.x+areaGiroIzq.width, yFinIzq = areaGiroIzq.y+areaGiroIzq.height;
+		for(int i = xIniIzq ; i<xFinIzq ; i++)
+		{
+			for(int j = yIniIzq ; j<yFinIzq ; j++)
+			{
+				cvSet2D(maskIzq, j, i, cvScalar(255.0));
+			}
+		}
+		CvScalar line_color_izq;			
+		line_color_izq = CV_RGB(0,0,255);
+		CvPoint ptIzq1, ptIzq2;
+		ptIzq1.x = xIniIzq;
+		ptIzq1.y = yIniIzq;
+		ptIzq2.x = xFinIzq;
+		ptIzq2.y = yFinIzq;
+		cvRectangle(frame1, ptIzq1, ptIzq2, line_color_izq, 1, CV_AA, 0 );
+
+		//----------------Mascara para la zona de giro a la derecha
+		allocateOnDemand( &maskDer, frame_size, IPL_DEPTH_8U, 1 );
+		cvSet(maskDer, cvScalar(0.0));
+		int xIniDer = areaGiroDer.x, yIniDer = areaGiroDer.y, xFinDer = areaGiroDer.x+areaGiroDer.width, yFinDer = areaGiroDer.y+areaGiroDer.height;
+		for(int i = xIniDer ; i<xFinDer ; i++)
+		{
+			for(int j = yIniDer ; j<yFinDer ; j++)
+			{
+				cvSet2D(maskDer, j, i, cvScalar(255.0));
+			}
+		}
+		CvScalar line_color_der;			
+		line_color_der = CV_RGB(0,255,255);
+		CvPoint ptDer1, ptDer2;
+		ptDer1.x = xIniDer;
+		ptDer1.y = yIniDer;
+		ptDer2.x = xFinDer;
+		ptDer2.y = yFinDer;
+		cvRectangle(frame1, ptDer1, ptDer2, line_color_der, 1, CV_AA, 0 );
+
+
+		/* Actually run the Shi and Tomasi algorithm!!
+		* "frame1_1C" is the input image.
+		* "eig_image" and "temp_image" are just workspace for the algorithm.
+		* The first ".01" specifies the minimum quality of the features (based on the eigenvalues).
+		* The second ".01" specifies the minimum Euclidean distance between features.
+		* "NULL" means use the entire input image.  You could point to a part of the image.
+		* WHEN THE ALGORITHM RETURNS:
+		* "frame1_features" will contain the feature points.
+		* "number_of_features" will be set to a value <= 400 indicating the number of feature points found.
+		*/
+		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Origen_features, &number_of_featuresOrigen, .01, .01, maskOrigen);
+		//cout << number_of_featuresOrigen << "\n";
+		eig_image = NULL, temp_image = NULL;
+		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Izq_features, &number_of_featuresIzq, .01, .01, maskIzq);
+		//cout << number_of_featuresIzq << "\n";
+		eig_image = NULL, temp_image = NULL;
+		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1Der_features, &number_of_featuresDer, .01, .01, maskDer);
+		//cout << number_of_featuresDer << "\n";
+
+		//Uniwer los 3 arreglo
+		CvPoint2D32f frame1Todo_features[MAX_NUM_FEATURES_POR_ZONA*3];
+		for (int i=0 ; i<(number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer) ; i++)
+		{
+			if(i<number_of_featuresOrigen)
+			{
+				frame1Todo_features[i] = frame1Origen_features[i]; 
+			}
+			else if(i<number_of_featuresOrigen+number_of_featuresIzq)
+			{
+				frame1Todo_features[i] = frame1Izq_features[i-number_of_featuresOrigen]; 
+			}
+			else if(i<number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer)
+			{
+				frame1Todo_features[i] = frame1Der_features[i-number_of_featuresOrigen-number_of_featuresIzq]; 
+			}
+
+
+			/*cout << "Origen: " << frame1Todo_features[i].x << "\n";
+			cout << "Izq:    " << frame1Todo_features[i+MAX_NUM_FEATURES_POR_ZONA].x << "\n";
+			cout << "Der:    " << frame1Todo_features[i+MAX_NUM_FEATURES_POR_ZONA*2].x << "\n";
+			*/
+		}
+
+		//cout << frame1Todo_features[MAX_NUM_FEATURES_POR_ZONA*3-1].x << "\n";
+
+		/* Pyramidal Lucas Kanade Optical Flow! */
+
+		/* This array will contain the locations of the points from frame 1 in frame 2. */
+		CvPoint2D32f frame2_features[MAX_NUM_FEATURES_POR_ZONA*3];
+
+		/* The i-th element of this array will be non-zero if and only if the i-th feature of
+		* frame 1 was found in frame 2.
+		*/
+		char optical_flow_found_feature[MAX_NUM_FEATURES_POR_ZONA*3];
+
+		/* The i-th element of this array is the error in the optical flow for the i-th feature
+		* of frame1 as found in frame 2.  If the i-th feature was not found (see the array above)
+		* I think the i-th entry in this array is undefined.
+		*/
+		float optical_flow_feature_error[MAX_NUM_FEATURES_POR_ZONA*3];
+
+		/* This is the window size to use to avoid the aperture problem (see slide "Optical Flow: Overview"). */
+		CvSize optical_flow_window = cvSize(3,3);
+
+		/* This termination criteria tells the algorithm to stop when it has either done 20 iterations or when
+		* epsilon is better than .3.  You can play with these parameters for speed vs. accuracy but these values
+		* work pretty well in many situations.
+		*/
+		CvTermCriteria optical_flow_termination_criteria
+			= cvTermCriteria( CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, maxIter, epsilon );
+
+		/* This is some workspace for the algorithm.
+		* (The algorithm actually carves the image into pyramids of different resolutions.)
+		*/
+		allocateOnDemand( &pyramid1, frame_size, IPL_DEPTH_8U, 1 );
+		allocateOnDemand( &pyramid2, frame_size, IPL_DEPTH_8U, 1 );
+
+		/* Actually run Pyramidal Lucas Kanade Optical Flow!!
+		* "frame1_1C" is the first frame with the known features.
+		* "frame2_1C" is the second frame where we want to find the first frame's features.
+		* "pyramid1" and "pyramid2" are workspace for the algorithm.
+		* "frame1_features" are the features from the first frame.
+		* "frame2_features" is the (outputted) locations of those features in the second frame.
+		* "number_of_features" is the number of features in the frame1_features array.
+		* "optical_flow_window" is the size of the window to use to avoid the aperture problem.
+		* "5" is the maximum number of pyramids to use.  0 would be just one level.
+		* "optical_flow_found_feature" is as described above (non-zero iff feature found by the flow).
+		* "optical_flow_feature_error" is as described above (error in the flow for this feature).
+		* "optical_flow_termination_criteria" is as described above (how long the algorithm should look).
+		* "0" means disable enhancements.  (For example, the second array isn't pre-initialized with guesses.)
+		*/
+		cvCalcOpticalFlowPyrLK(frame1_1C, frame2_1C, pyramid1, pyramid2, frame1Todo_features, frame2_features, number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer, optical_flow_window, 5, optical_flow_found_feature, optical_flow_feature_error, optical_flow_termination_criteria, 0 );
+		//cout << (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer) << "\n";
+
+		//----Liberando memoria
+			//free(maskOrigen);
+
+		/* For fun (and debugging :)), let's draw the flow field. */
+		for(int i = 0; i < (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer); i++)
+		{
+			/* If Pyramidal Lucas Kanade didn't really find the feature, skip it. */
+			if ( optical_flow_found_feature[i] == 0 )	continue;
+			if ( optical_flow_feature_error[i] > maxError )	continue;
+			//cout << optical_flow_feature_error[i] << "\n";
+
+			int line_thickness;				line_thickness = 1;
+			/* CV_RGB(red, green, blue) is the red, green, and blue components
+			* of the color you want, each out of 255.
+			*/	
+			CvScalar line_color;			line_color = CV_RGB(255,0,0);
+
+			/* Let's make the flow field look nice with arrows. */
+
+			/* The arrows will be a bit too short for a nice visualization because of the high framerate
+			* (ie: there's not much motion between the frames).  So let's lengthen them by a factor of 3.
+			*/
+			CvPoint p,q;
+			p.x = (int) frame1Todo_features[i].x;
+			p.y = (int) frame1Todo_features[i].y;
+			q.x = (int) frame2_features[i].x;
+			q.y = (int) frame2_features[i].y;
+
+			Point pNuevo = p;
+			Point qNuevo = q;
+
+			Point vec = qNuevo - pNuevo;
+
+			if(norm(vec) < minNorm) 
+				continue;
+			if(norm(vec) > maxNorm) 
+				continue;
+
+
+			double angle;		angle = atan2( (double) p.y - q.y, (double) p.x - q.x );
+			double hypotenuse;	hypotenuse = sqrt( square(p.y - q.y) + square(p.x - q.x) );
+
+			/* Here we lengthen the arrow by a factor of three. */
+			q.x = (int) (p.x - 3 * hypotenuse * cos(angle));
+			q.y = (int) (p.y - 3 * hypotenuse * sin(angle));
+
+			/* Now we draw the main line of the arrow. */
+			/* "frame1" is the frame to draw on.
+			* "p" is the point where the line begins.
+			* "q" is the point where the line stops.
+			* "CV_AA" means antialiased drawing.
+			* "0" means no fractional bits in the center cooridinate or radius.
+			*/
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+			/* Now draw the tips of the arrow.  I do some scaling so that the
+			* tips look proportional to the main line of the arrow.
+			*/			
+			p.x = (int) (q.x + 9 * cos(angle + PI / 4));
+			p.y = (int) (q.y + 9 * sin(angle + PI / 4));
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+			p.x = (int) (q.x + 9 * cos(angle - PI / 4));
+			p.y = (int) (q.y + 9 * sin(angle - PI / 4));
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+
+			//----Liberando memoria
+			//free(maskOrigen);
+			//free(frame1);
+			//free(frame1_1C);
+			//free(frame2_1C);
+			//delete maskOrigen;
+			//delete frame1_1C;
+
+		}
+		/* Now display the image we drew on.  Recall that "Optical Flow" is the name of
+		* the window we created above.
+		*/
+		//cvShowImage("Optical Flow", frame1);
+
+
+		//--------------------probando marcacion en pantalla
+		Mat image = frame1; 
+		//Mat image = cvarrToMat(frame1).clone();
+		if( selectObject && selection.width > 0 && selection.height > 0 )
+		{
+			Mat roi(image, selection);
+			bitwise_not(roi, roi);
+		}
+
+		imshow( "Optical Flow", image );
+		//--------------------probando marcacion en pantalla
 
 
 
+		/* And wait for the user to press a key (so the user has time to look at the image).
+		* If the argument is 0 then it waits forever otherwise it waits that number of milliseconds.
+		* The return value is the key the user pressed.
+		*/
+		int key_pressed;
+		key_pressed = cvWaitKey(1);
 
-
-	return 0;
+		/* If the users pushes "b" or "B" go back one frame.
+		* Otherwise go forward one frame.
+		*/
+		if (key_pressed == 'b' || key_pressed == 'B')	current_frame--;
+		else											current_frame++;
+		/* Don't run past the front/end of the AVI. */
+		if (current_frame < 0)						current_frame = 0;
+		if (current_frame >= number_of_frames - 1)	current_frame = number_of_frames - 2;
+	}
 }
