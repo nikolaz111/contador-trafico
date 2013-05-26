@@ -37,11 +37,17 @@ double maxError = 10;
 int frame_video_trackbar = 0;
 long current_frame = 0;
 int tamanoVentana = 3;
+int maxDistPuntosCarro_trackbar = 200;
+double maxDistPuntosCarro = 20;
+int maxAnguloPuntosCarro_trackbar = (PI/4)*100;
+double maxAnguloPuntosCarro = PI/4;
+int minPuntosCarro = 8;
 
 bool selectObject = false;
 Rect selection;
 Point origin;
 int trackObject = 0;
+
 
 
 void on_trackbar_epsilon( int, void* )
@@ -55,6 +61,14 @@ void on_trackbar_error( int, void* )
 void on_trackbar_frame_video( int, void* )
 {
 	current_frame = frame_video_trackbar;
+}
+void on_trackbar_maxDistPuntosCarro( int, void* )
+{
+	maxDistPuntosCarro = maxDistPuntosCarro_trackbar/10;
+}
+void on_trackbar_maxAnguloPuntosCarro( int, void* )
+{
+	maxAnguloPuntosCarro = maxAnguloPuntosCarro_trackbar/100;
 }
 
 
@@ -120,6 +134,79 @@ inline static double square(int a)
 	return a * a;
 }
 
+inline static void puntosCercanosAlineados(std::vector<Point>* puntos, std::vector<int>* puntosPintar, int puntoInteres, CvPoint2D32f* frame1_features, CvPoint2D32f* frame2_features, char* optical_flow_found_feature, float* optical_flow_feature_error, bool* puntosMarcados, int numFeatures)
+{
+	if(!puntosMarcados[puntoInteres])
+	{
+
+		Point pPuntoInteres,qPuntoInteres;
+		pPuntoInteres.x = (int) frame1_features[puntoInteres].x;
+		pPuntoInteres.y = (int) frame1_features[puntoInteres].y;
+		qPuntoInteres.x = (int) frame2_features[puntoInteres].x;
+		qPuntoInteres.y = (int) frame2_features[puntoInteres].y;
+
+		/* Criterios para safar punto
+		* If Pyramidal Lucas Kanade didn't really find the feature, skip it. */
+		if ( optical_flow_found_feature[puntoInteres] == 0 )	return;
+		if ( optical_flow_feature_error[puntoInteres] > maxError )	return;
+
+		Point pNuevoPuntoInteres = pPuntoInteres;
+		Point qNuevoPuntoInteres = qPuntoInteres;
+
+		Point vecPuntoInteres = qNuevoPuntoInteres - pNuevoPuntoInteres;
+		if(norm(vecPuntoInteres) < minNorm)	return;
+		if(norm(vecPuntoInteres) > maxNorm)	return;
+		/* Fin de criterios para safar punto*/
+
+		double anglePuntoInteres;		anglePuntoInteres = atan2( (double) pPuntoInteres.y - qPuntoInteres.y, (double) pPuntoInteres.x - qPuntoInteres.x );
+		//double hypotenusePuntoInteres;	hypotenusePuntoInteres = sqrt( square(pPuntoInteres.y - qPuntoInteres.y) + square(pPuntoInteres.x - qPuntoInteres.x) );
+
+		for(int i = 0; i < (numFeatures); i++)
+		{
+			if(!puntosMarcados[i] && puntoInteres != i)
+			{
+				
+				Point p,q;
+				p.x = (int) frame1_features[i].x;
+				p.y = (int) frame1_features[i].y;
+				q.x = (int) frame2_features[i].x;
+				q.y = (int) frame2_features[i].y;
+
+				/* Criterios para safar punto
+				* If Pyramidal Lucas Kanade didn't really find the feature, skip it. */
+				if ( optical_flow_found_feature[i] == 0 )	continue;
+				if ( optical_flow_feature_error[i] > maxError )	continue;
+
+				Point pNuevo = p;
+				Point qNuevo = q;
+
+				Point vec = qNuevo - pNuevo;
+				if(norm(vec) < minNorm)	continue;
+				if(norm(vec) > maxNorm)	continue;
+				/* Fin de criterios para safar punto*/
+
+				double angle;		angle = atan2( (double) p.y - q.y, (double) p.x - q.x );
+				//double hypotenuse;	hypotenuse = sqrt( square(p.y - q.y) + square(p.x - q.x) );
+				double dist = norm(pPuntoInteres - p);
+
+				if(abs(angle-anglePuntoInteres)>maxAnguloPuntosCarro || dist>maxDistPuntosCarro) 
+					continue;
+				else
+				{
+					puntos->push_back(p);
+					puntosMarcados[i] = true;
+					puntosPintar->push_back(i);
+					puntosCercanosAlineados(puntos, puntosPintar, i, frame1_features, frame2_features, optical_flow_found_feature, optical_flow_feature_error, puntosMarcados, numFeatures);
+				}
+			}
+		}
+
+		puntos->push_back(pPuntoInteres);
+		puntosPintar->push_back(puntoInteres);
+
+	}
+}
+
 /* This is just an inline that allocates images.  I did this to reduce clutter in the
 * actual computer vision algorithmic code.  Basically it allocates the requested image
 * unless that image is already non-NULL.  It always leaves a non-NULL image as-is even
@@ -183,6 +270,9 @@ int main(void)
 	createTrackbar( "Max Error", "Controls", &maxError_trackbar, 1000, on_trackbar_error);
 	createTrackbar( "Video", "Controls", &frame_video_trackbar, number_of_frames, on_trackbar_frame_video);
 	createTrackbar( "Kernel", "Controls", &tamanoVentana, 30, NULL);
+	createTrackbar( "MaxDistPuntos", "Controls", &maxDistPuntosCarro_trackbar, 10000, on_trackbar_maxDistPuntosCarro);
+	createTrackbar( "MinNumPuntos", "Controls", &minPuntosCarro, 100, NULL);
+	createTrackbar( "MaxAngPuntos", "Controls", &maxAnguloPuntosCarro_trackbar, 300, on_trackbar_maxDistPuntosCarro);
 
 	setMouseCallback( "Optical Flow", onMouse, 0 );
 
@@ -415,8 +505,43 @@ int main(void)
 		cvCalcOpticalFlowPyrLK(frame1_1C, frame2_1C, pyramid1, pyramid2, frame1Todo_features, frame2_features, number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer, optical_flow_window, 5, optical_flow_found_feature, optical_flow_feature_error, optical_flow_termination_criteria, 0 );
 		//cout << (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer) << "\n";
 
-		//----Liberando memoria
-			//free(maskOrigen);
+		std::vector<Point> posicionesCarros;
+		bool puntosAPintarDiferente[MAX_NUM_FEATURES_POR_ZONA*3];
+		for(int r = 0; r<MAX_NUM_FEATURES_POR_ZONA*3 ; r++)
+			puntosAPintarDiferente[r] = false;
+		bool puntosMarcados[MAX_NUM_FEATURES_POR_ZONA*3];
+			for(int r = 0; r<MAX_NUM_FEATURES_POR_ZONA*3 ; r++)
+				puntosMarcados[r] = false;
+		//cout << puntosAPintarDiferente << "\n";
+		for(int i = 0; i < (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer); i++)
+		{
+			
+			std::vector<Point> puntos;
+			std::vector<int> puntosPintar;
+			puntosCercanosAlineados(&puntos, &puntosPintar, i, frame1Todo_features, frame2_features, optical_flow_found_feature, optical_flow_feature_error, puntosMarcados, (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer) );
+
+			//cout << puntos.size() << "\n";
+			//cout << puntosMarcados[5] << "\n";
+
+			if(puntos.size()>=minPuntosCarro)
+			{
+				Point puntoProm;
+				for(int k = 0 ; k<puntos.size(); k++)
+				{
+					puntoProm.x += puntos[k].x;
+					puntoProm.y += puntos[k].y;
+					puntosAPintarDiferente[puntosPintar[k]] = true;
+				}
+
+				puntoProm.x = puntoProm.x/puntos.size();
+				puntoProm.y = puntoProm.y/puntos.size();
+
+				posicionesCarros.push_back(puntoProm);
+				cvCircle(frame1, puntoProm, 10, line_color_der, 10, CV_AA, 0);
+				//cout << "carro: (" << puntoProm.x << " - " << puntoProm.y << ")\n";
+			}
+		}
+		cout << "NUM CARROS: " << posicionesCarros.size() << "\n";
 
 		/* For fun (and debugging :)), let's draw the flow field. */
 		for(int i = 0; i < (number_of_featuresOrigen+number_of_featuresIzq+number_of_featuresDer); i++)
@@ -430,8 +555,15 @@ int main(void)
 			/* CV_RGB(red, green, blue) is the red, green, and blue components
 			* of the color you want, each out of 255.
 			*/	
-			CvScalar line_color;			line_color = CV_RGB(255,0,0);
-
+			CvScalar line_color;
+			if(puntosAPintarDiferente[i])
+			{
+				line_color = CV_RGB(255,255,255);
+			}
+			else
+			{
+				line_color = CV_RGB(255,0,0);
+			}
 			/* Let's make the flow field look nice with arrows. */
 
 			/* The arrows will be a bit too short for a nice visualization because of the high framerate
@@ -479,13 +611,7 @@ int main(void)
 			p.y = (int) (q.y + 9 * sin(angle - PI / 4));
 			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
 
-			//----Liberando memoria
-			//free(maskOrigen);
-			//free(frame1);
-			//free(frame1_1C);
-			//free(frame2_1C);
-			//delete maskOrigen;
-			//delete frame1_1C;
+
 
 		}
 		/* Now display the image we drew on.  Recall that "Optical Flow" is the name of
