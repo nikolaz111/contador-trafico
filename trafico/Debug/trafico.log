@@ -1,5 +1,5 @@
-﻿Build started 5/26/2013 7:26:38 PM.
-     1>Project "C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\trafico\trafico.vcxproj" on node 2 (build target(s)).
+﻿Build started 5/27/2013 12:08:14 AM.
+     1>Project "C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\trafico\trafico.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Debug\trafico.unsuccessfulbuild" because "AlwaysCreate" was specified.
        ClCompile:
@@ -7,19 +7,32 @@
          test.cpp
      1>c:\opencv\build\include\opencv2\flann\logger.h(66): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(234) : see declaration of 'fopen'
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(44): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(476): warning C4018: '>=' : signed/unsigned mismatch
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(479): warning C4018: '<' : signed/unsigned mismatch
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(732): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(757): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(35): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(42): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(62): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(558): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(561): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(660): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(663): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(762): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(765): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1149): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1152): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1251): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1254): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1353): warning C4018: '>=' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1356): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1602): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1627): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(602): warning C4715: 'nosotros' : not all control paths return a value
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(672): warning C4715: 'canny' : not all control paths return a value
-     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(783): warning C4715: 'restar' : not all control paths return a value
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(881): warning C4715: 'nosotros' : not all control paths return a value
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1472): warning C4715: 'nosotrosRestar' : not all control paths return a value
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1542): warning C4715: 'canny' : not all control paths return a value
+     1>c:\users\nicolas\documents\visual studio 2010\projects\trafico\trafico\test.cpp(1653): warning C4715: 'restar' : not all control paths return a value
        ManifestResourceCompile:
          All outputs are up-to-date.
        Link:
-         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\Debug\trafico.exe" /INCREMENTAL /NOLOGO /LIBPATH:C:\opencv\build\\x86\vc10\lib opencv_objdetect245d.lib opencv_photo245d.lib opencv_stitching245d.lib opencv_superres245d.lib opencv_ts245d.lib opencv_video245d.lib opencv_videostab245d.lib opencv_calib3d245d.lib opencv_contrib245d.lib opencv_core245d.lib opencv_features2d245d.lib opencv_flann245d.lib opencv_gpu245d.lib opencv_haartraining_engined.lib opencv_highgui245d.lib opencv_imgproc245d.lib opencv_legacy245d.lib opencv_ml245d.lib opencv_nonfree245d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\trafico.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\Debug\trafico.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\Debug\trafico.lib" /MACHINE:X86 Debug\trafico.exe.embed.manifest.res
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\Debug\trafico.exe" /INCREMENTAL /NOLOGO /LIBPATH:C:\opencv\build\\x86\vc10\lib opencv_objdetect245d.lib opencv_photo245d.lib opencv_stitching245d.lib opencv_superres245d.lib opencv_ts245d.lib opencv_video245d.lib opencv_videostab245d.lib opencv_calib3d245d.lib opencv_contrib245d.lib opencv_core245d.lib opencv_features2d245d.lib opencv_flann245d.lib opencv_gpu245d.lib opencv_haartraining_engined.lib opencv_highgui245d.lib opencv_imgproc245d.lib opencv_legacy245d.lib opencv_ml245d.lib opencv_nonfree245d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\trafico.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\Debug\trafico.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\Debug\trafico.lib" /MACHINE:X86 Debug\trafico.exe.embed.manifest.res
          Debug\cvplot.obj
          Debug\test.obj
        Manifest:
@@ -27,12 +40,12 @@
          All outputs are up-to-date.
        LinkEmbedManifest:
          All outputs are up-to-date.
-         trafico.vcxproj -> C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\Debug\trafico.exe
+         trafico.vcxproj -> C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\Debug\trafico.exe
        FinalizeBuildStatus:
          Deleting file "Debug\trafico.unsuccessfulbuild".
          Touching "Debug\trafico.lastbuildstate".
-     1>Done Building Project "C:\Users\Nicolas\Documents\Visual Studio 2010\Projects\trafico\trafico\trafico.vcxproj" (build target(s)).
+     1>Done Building Project "C:\Users\Nicolas\documents\visual studio 2010\Projects\trafico\trafico\trafico.vcxproj" (build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:01.91
+Time Elapsed 00:00:02.04
